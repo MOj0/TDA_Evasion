@@ -1,13 +1,12 @@
 from typing import TypeAlias
 import math
-import gudhi
+import gudhi as gd
 import numpy as np
 from collections import defaultdict
+from dataclasses import dataclass
+import functools
 
-# NOTE: Zig-zag persistent homology...
-
-# NOTE: When computing homology, check the generators:
-#   generator could "time travel" or define a path which does not loop around along `p` - both cases do not represent a path thief can take
+# NOTE: alternative approach: Zig-zag persistent homology
 
 
 class Position:
@@ -60,46 +59,78 @@ class Sensor:
             self.curr_pos + Position(i, j) for i in range(-1, 2) for j in range(-1, 2)
         ]
 
-    def slice(self) -> gudhi.cubical_complex.CubicalComplex:
+    def slice(self) -> gd.cubical_complex.CubicalComplex:
         topleft = self.curr_pos + Position(-1, -1)
         bottomright = self.curr_pos + Position(1, 1)
 
-        return gudhi.cubical_complex.CubicalComplex(
+        return gd.cubical_complex.CubicalComplex(
             vertices=[topleft.as_list(), bottomright.as_list()]
         )
 
     def __str__(self):
         return str(self.curr_pos)
+    
+    @property
+    def period(self) -> int:
+        return 2 * (self.path_max - self.path_min)
+    
+
+@dataclass
+class SensorNetwork:
+    # name: str
+    sensors: list[Sensor]
+    room_width: int
+    room_height: int
+
+    @functools.cached_property
+    def period(self) -> int:
+        return math.lcm(*[s.period for s in self.sensors])
 
 
-SENSORS = [
-    Sensor(Position(1, 1), Position(0, 1), Path((Position(1, 1), Position(1, 6)))),
-    Sensor(Position(6, 1), Position(1, 0), Path((Position(2, 1), Position(7, 1)))),
-    Sensor(Position(3, 5), Position(0, -1), Path((Position(3, 5), Position(3, 3)))),
-    Sensor(Position(5, 4), Position(0, 1), Path((Position(5, 3), Position(5, 5)))),
-    Sensor(Position(7, 5), Position(0, 1), Path((Position(7, 3), Position(7, 7)))),
-    Sensor(Position(4, 7), Position(-1, 0), Path((Position(1, 7), Position(5, 7)))),
-]
+    def planar_slices(self) -> list[list[gd.cubical_complex.CubicalComplex]]:
+        areas = []
+        for _ in range(self.period):
+            area = []
+            for s in self.sensors:
+                area.append(s.slice()) 
+                s.move()
 
+            areas.append(area) # NOTE: could have overlapping covered areas
 
-def compute_period(sensors: list[Sensor]) -> int:
-    return math.lcm(*[2 * (s.path_max - s.path_min) for s in sensors])
+        return areas
+    
 
+    def all_cells(self) -> np.ndarray:
+        # NOTE: a sm zamenou height pa width??
+        return np.array([[[i, j], [i + 1, j + 1]] for i in range(self.room_height) for j in range(self.room_width)])
+    
 
-def planar_slices(
-    sensors: list[Sensor],
-) -> list[list[gudhi.cubical_complex.CubicalComplex]]:
-    areas = []
-    p = compute_period(sensors)
-    for _ in range(p):
-        area = []
-        for s in sensors:
-            area.append(s.slice())
-            s.move()
+    def construct_F(self):
+        r"""Constructs free subcomplex F = (X * [0, p] \ C)"""
+        F_complex = defaultdict(list)
+        slices = self.planar_slices()
+        cells = self.all_cells()
 
-        areas.append(area)
+        for i, (s1, s2) in enumerate(zip(slices, slices[1:] + [slices[0]])):
+            for cell in cells:
+                first_cell_free = not any(contains_interval(s.vertices(), cell) for s in s1)
+                second_cell_free = not any(
+                    contains_interval(s.vertices(), cell) for s in s2
+                )
 
-    return areas
+                if first_cell_free and second_cell_free:
+                    # TODO: Construct 3D cubical complex here
+                    F_complex[(i, i + 1)].append(cell)
+
+        return F_complex
+    
+
+    def evasion_paths(self):
+        # NOTE: When computing homology, check the generators:
+        #   generator could "time travel" or define a path which does not loop around along `p` - both
+        #   cases do not represent a path thief can take
+        raise NotImplementedError
+
 
 
 def contains_interval(interval: np.ndarray, other: np.ndarray):
@@ -109,31 +140,21 @@ def contains_interval(interval: np.ndarray, other: np.ndarray):
     )
 
 
-def all_cells(n: int):
-    return np.array([[[i, j], [i + 1, j + 1]] for i in range(n) for j in range(n)])
+SAMPLE_SENSORS = [
+    Sensor(Position(1, 1), Position(0, 1), Path((Position(1, 1), Position(1, 6)))),
+    Sensor(Position(6, 1), Position(1, 0), Path((Position(2, 1), Position(7, 1)))),
+    Sensor(Position(3, 5), Position(0, -1), Path((Position(3, 5), Position(3, 3)))),
+    Sensor(Position(5, 4), Position(0, 1), Path((Position(5, 3), Position(5, 5)))),
+    Sensor(Position(7, 5), Position(0, 1), Path((Position(7, 3), Position(7, 7)))),
+    Sensor(Position(4, 7), Position(-1, 0), Path((Position(1, 7), Position(5, 7)))),
+]
 
+sample_network = SensorNetwork(SAMPLE_SENSORS, 8, 8)
 
-# Constructs free subcomplex F = (X * [0, p] \ C)
-def construct_F(sensors: list[Sensor]):
-    F_complex = defaultdict(list)
-    slices = planar_slices(sensors)
-    cells = all_cells(8)
-
-    for i, (s1, s2) in enumerate(zip(slices, slices[1:] + [slices[0]])):
-        for cell in cells:
-            first_cell_free = not any(contains_interval(s.vertices(), cell) for s in s1)
-            second_cell_free = not any(
-                contains_interval(s.vertices(), cell) for s in s2
-            )
-
-            if first_cell_free and second_cell_free:
-                # TODO: Construct 3D cubical complex here
-                F_complex[(i, i + 1)].append(cell)
-
-    return F_complex
-
-
-print("p:", compute_period(SENSORS))
-for i, slice in enumerate(planar_slices(SENSORS)):
+print("p:", sample_network.period)
+print("slices:")
+for i, slice in enumerate(sample_network.planar_slices()):
     print(i, list(map(lambda s: s.vertices(), slice)))
-print(construct_F(SENSORS))
+
+print("\nF complex:")
+print(sample_network.construct_F())
