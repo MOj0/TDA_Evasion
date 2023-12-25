@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import functools
 import matplotlib.animation
 import matplotlib.pyplot as plt
-
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import gudhi
 from gudhi import CubicalComplex, PeriodicCubicalComplex
 
@@ -251,12 +252,62 @@ class SensorNetwork:
         plt.show()
 
 
-
+1
 def contains_interval(interval: np.ndarray, other: np.ndarray):
     return all(
         element[0] >= boundary[0] and element[1] <= boundary[1]
         for boundary, element in zip(interval.transpose(), other.transpose())
     )
+
+
+def draw3d(cpx: CubicalComplex, free_full=True, alpha=0.5):
+    cube_f = cpx.top_dimensional_cells()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    free_cpx = (cube_f == 1)
+    ax.voxels(free_cpx if free_full else ~free_cpx, alpha=alpha)
+
+    ax.set_xlim(0, cube_f.shape[0])
+    ax.set_ylim(0, cube_f.shape[1])
+    ax.set_zlim(0, cube_f.shape[2])
+    set_axes_equal(ax)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('time')
+
+    plt.show()
+
+
+def set_axes_equal(ax):
+    """
+    Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc.
+
+    Input
+      ax: a matplotlib axis, e.g., as output from plt.gca().
+    """
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
 SAMPLE_SENSORS = [
@@ -279,5 +330,6 @@ sample_network = SensorNetwork(SAMPLE_SENSORS, 8, 8)
 # print(sample_network.construct_F())
 
 # sample_network.animate_coverage()
+# sample_network.evasion_paths()
 
-sample_network.evasion_paths()
+draw3d(sample_network.evasion_complex(), alpha=0.4)
