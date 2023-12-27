@@ -1,4 +1,4 @@
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TypeAlias
 import math
 import numpy as np
 from collections import defaultdict
@@ -95,6 +95,10 @@ class Sensor:
     def __init__(self, path: Path):
         self.path = path
 
+    def reset(self):
+        self.path.pos = self.path.path_points[0]
+        self.path.dir_idx = 0
+
     def __str__(self):
         return str(self.curr_pos)
 
@@ -134,6 +138,10 @@ class SensorNetwork:
             for p in sensor.path.path_points
         ), "Path out of bounds"
 
+    def reset(self):
+        for sensor in self.sensors:
+            sensor.reset()
+
     @functools.cached_property
     def period(self) -> int:
         return math.lcm(*[s.period for s in self.sensors])
@@ -171,7 +179,9 @@ class SensorNetwork:
                     yield adjacent_cell_pos
 
     def covered_slices(self) -> Iterator[set[Position]]:
-        """result[t] = positions of covered cells at time t"""
+        """result[t] = positions of covered cells at time t
+        
+        NOTE: this actually moves the sensors, but they should return to their original positions at the end"""
         for _ in range(self.period):
             covered_cells = set()
             for s in self.sensors:
@@ -236,8 +246,11 @@ class SensorNetwork:
 
         # NOTE: using a vertices= constructor can lead to an undefined behavior in cofaces_of_persistence_pairs()
         return CubicalComplex(top_dimensional_cells=cube_filtration)
+    
+    Area: TypeAlias = list[Position]
 
-    def evasion_paths(self, compute_homology=True) -> list[list[Position]]:
+    def evasion_paths(self, compute_homology=True) -> list[list[Area]]:
+        """each path is a list of Areas (collection of cell Positions where the thief can be in a given time interval)"""
         cpx = self.evasion_complex()
         cube_f = cpx.top_dimensional_cells() # filtration values of the top-dimensional cells (cubes)
         # print(f"{cpx.dimension()}-dim evasion complex with {cube_f.shape}-grid of cubes ({cpx.num_simplices()} simplices)")
@@ -254,18 +267,18 @@ class SensorNetwork:
             #   cases do not represent a path thief can take
         else:
             # just find cyclic paths in the directed graph (should all be of length p due to the construction)
-            starting_points = [node for node in evasion_graph.nodes if node[1] == 0] # position of thief in the first time interval
+            starting_points = [node for node in evasion_graph.nodes if node[0] == 0] # position of thief in the first time interval
             paths = []
 
             path_buf = []
-            def cyclic_paths_from(start, curr_node=None, depth_lim=self.period) -> Iterator[list[Position]]:
+            def cyclic_paths_from(start, curr_node=None, depth_lim=self.period) -> Iterator[list[SensorNetwork.Area]]:
                 if curr_node == start:
-                    yield path_buf.copy()
+                    yield [evasion_graph.nodes[node]["area"] for node in path_buf]
 
                 elif depth_lim > 0:
                     if curr_node is None: curr_node = start
 
-                    path_buf.append(curr_node[0])
+                    path_buf.append(curr_node)
                     for succ in evasion_graph.successors(curr_node):
                         yield from cyclic_paths_from(start, succ, depth_lim - 1)
 
@@ -298,37 +311,6 @@ class SensorNetwork:
             print()
 
 
-    def animate_movement(self, frametime=1, evasion_path: Optional[list[Position]] = None):
-        """frames are separated by frametime seconds"""
-        plt.ioff()
-        fig, ax = plt.subplots()
-        covered_at = list(self.covered_slices())
-        # TODO: use evasion_path to highlight the path thief takes (arrows?)
-
-        def animate(t):
-            frame = np.zeros((self.room_height, self.room_width))
-            for cell in covered_at[t]:
-                frame[cell.y, cell.x] = 1
-            plt.cla()
-            plt.imshow(frame)
-            if evasion_path is not None:
-                pos_after = evasion_path[t]
-                pos_before = evasion_path[t - 1]
-                # print(f"t={t}: {pos_before} -> {pos_after}")
-                plt.arrow(
-                    pos_before.x,
-                    pos_before.y,
-                    pos_after.x - pos_before.x,
-                    pos_after.y - pos_before.y,
-                    color="red",
-                    width=0.1,
-                )
-
-        ani = matplotlib.animation.FuncAnimation(
-            fig, animate, frames=self.period, interval=1000 * frametime, repeat=True
-        )
-        plt.show()
-
 
 def contains_interval(interval: np.ndarray, other: np.ndarray):
     return all(
@@ -338,6 +320,7 @@ def contains_interval(interval: np.ndarray, other: np.ndarray):
 
 
 def draw3d(cpx: CubicalComplex, free_full=True, alpha=0.5):
+    # TODO: overlay compressed graph (if debugging necessary)
     cube_f = cpx.top_dimensional_cells()
 
     fig = plt.figure()
@@ -389,7 +372,8 @@ def set_axes_equal(ax):
 
 def collapse_to_graph(cpx: CubicalComplex) -> nx.DiGraph:
     """Homotopy-preserving collapse to a graph (assuming no 3D caves).
-    Nodes of the form (Position, t) where t is the start of a unit time interval.
+    Nodes of the form (t, CC index) where t is the start of a unit time interval,
+    along with attribute area (list of Positions in the connected component).
     Edges oriented along the 3rd axis of the grid (time)."""
 
     voxels: np.ndarray = (cpx.top_dimensional_cells() == 1)
@@ -404,22 +388,23 @@ def collapse_to_graph(cpx: CubicalComplex) -> nx.DiGraph:
         comps = [[] for _ in range(ncomps)]
 
         for x, y in np.ndindex(labels.shape): # NOTE: first axis is x (room width)
-            if (lab := labels[y, x]) != 0:
+            if (lab := labels[x, y]) != 0:
                 comps[lab - 1].append(Position(x, y))
 
         voxel_layer_comps.append(comps)
-        graph.add_nodes_from((comp[0], t) for comp in comps)
+        graph.add_nodes_from(((t, c), dict(area=comp)) for c, comp in enumerate(comps))
         # TODO: use the centroid as a component representative instead of arbitrary cell? (pretty sure these are convex components)
 
     for t in range(p):
         these_comps = voxel_layer_comps[t]
         next_comps = voxel_layer_comps[(t + 1) % p]
 
-        for c1, c2 in product(these_comps, next_comps):
-            if len(set(c1) & set(c2)) > 0: # OPT: convert all to set only once
-                src = (c1[0], t)
-                dst = (c2[0], (t + 1) % p)
-                graph.add_edge(src, dst)
+        for i, c1 in enumerate(these_comps):
+            for j, c2 in enumerate(next_comps):
+                if len(set(c1) & set(c2)) > 0: # OPT: convert all to set only once
+                    src = (t, i)
+                    dst = ((t + 1) % p, j)
+                    graph.add_edge(src, dst)
 
     return graph
 
@@ -448,10 +433,11 @@ NETWORKS = [
     # SensorNetwork("instructions fig. 4")
 ]
 
-for network in NETWORKS[:1]:
-    print(network)
-    # draw3d(network.evasion_complex(), alpha=0.4)
-    paths = network.evasion_paths(compute_homology=False)
-    print(f"found {len(paths)} evasion paths")
-    # pprint(paths)
-    network.animate_movement(evasion_path=paths[0], frametime=1)
+
+if __name__ == "__main__":
+    for network in NETWORKS[1:]:
+        print(network)
+        # draw3d(network.evasion_complex(), alpha=0.4)
+        paths = network.evasion_paths(compute_homology=False)
+        print(f"found {len(paths)} evasion paths")
+        # pprint(paths)
