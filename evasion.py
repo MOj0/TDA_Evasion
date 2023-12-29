@@ -256,7 +256,6 @@ class SensorNetwork:
         # print(f"{cpx.dimension()}-dim evasion complex with {cube_f.shape}-grid of cubes ({cpx.num_simplices()} simplices)")
 
         evasion_graph = collapse_to_graph(cpx)
-        # print(evasion_graph)
         # draw_evasion_graph(evasion_graph)
     
         if compute_homology:
@@ -411,7 +410,8 @@ def collapse_to_graph(cpx: CubicalComplex) -> nx.DiGraph:
 def draw_evasion_graph(graph: nx.DiGraph):
     vert_loc = lambda pos: 10 * pos.x + pos.y # TODO: give access to room dimensions, use height + 1 instead of 10
 
-    nx.draw(graph, with_labels=True, pos={node: (node[1], vert_loc(node[0])) for node in graph.nodes})
+    nx.draw(graph, with_labels=True, pos={node: (node[0], vert_loc(data["area"][0]))
+                                          for node, data in graph.nodes(data=True)})
     plt.title(f"Evasion {graph}")
     plt.show()
 
@@ -431,11 +431,15 @@ NETWORKS = [
         Sensor(Path([Position(1, 1), Position(1, 3), Position(3, 3), Position(3, 1)]))
     ]),
     # SensorNetwork("instructions fig. 4")
+    SensorNetwork("2 parrallel up&down (no evasion)", room_width=4, room_height=5, sensors=[
+        Sensor(Path([Position(1, 1), Position(1, 4)])),
+        Sensor(Path([Position(3, 1), Position(3, 4)]))
+    ]),
 ]
 
 
 if __name__ == "__main__":
-    for network in NETWORKS[1:]:
+    for network in NETWORKS[2:]:
         print(network)
         # draw3d(network.evasion_complex(), alpha=0.4)
         paths = network.evasion_paths(compute_homology=False)
