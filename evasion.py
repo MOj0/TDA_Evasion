@@ -249,7 +249,7 @@ class SensorNetwork:
     
     Area: TypeAlias = list[Position]
 
-    def evasion_paths(self, compute_homology=True) -> list[list[Area]]:
+    def evasion_paths(self, compute_homology=False) -> list[list[Area]]:
         """each path is a list of Areas (collection of cell Positions where the thief can be in a given time interval)"""
         cpx = self.evasion_complex()
         cube_f = cpx.top_dimensional_cells() # filtration values of the top-dimensional cells (cubes)
@@ -435,11 +435,15 @@ NETWORKS = [
         Sensor(Path([Position(1, 1), Position(1, 4)])),
         Sensor(Path([Position(3, 1), Position(3, 4)]))
     ]),
+    SensorNetwork("2 consecutive up&down (tight evasion)", room_width=2, room_height=6, sensors=[
+        Sensor(Path([Position(1, 1), Position(1, 2)])),
+        Sensor(Path([Position(1, 4), Position(1, 5)]))
+    ]),
 ]
 
 
 if __name__ == "__main__":
-    for network in NETWORKS[2:]:
+    for network in NETWORKS[-1:]:
         print(network)
         # draw3d(network.evasion_complex(), alpha=0.4)
         paths = network.evasion_paths(compute_homology=False)
