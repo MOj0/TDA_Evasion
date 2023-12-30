@@ -5,3 +5,8 @@ A_evasion.pdf
 cubical_ripser_tutorial.ipynb
 
 report/out
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.gz

@@ -72,18 +72,19 @@
 \section{Introduction}
 
 The evasion problem asks if there is a way to move in an area, covered with moving sensors, and not be detected.
-We assume the sesnors follow a predefined path and their movement is periodic.
-This means that, after some period, the area covered by sesnors is identical.
+We assume the sensors follow a predefined path and their movement is periodic.
+This means that, after some period, the area covered by sensors is identical.
 Furthermore, we assume the area in question is a subspace of the plane $ \mathbb{R}^2 $.
 These assumptions do not lose generality, since movement of real sesnors is often periodic and movement through an area can be modelled in the plane.
 
 This solution could be applied to the problem of determining the optimal amount of sensors and their paths to cover the area.
-The goal of such problem is not to cover the entire area at all times, but to cover parts of it with less sensors, such that a potential intruder cannot avoid detection throughout the whole period.
+The goal in this case is not to cover the entire area at all times, but to cover parts of it with fewer sensors, such that a potential intruder cannot avoid detection throughout the whole period.
 
 The following are additional assumptions taken into account, which do lose on generality, however greatly simplify the implementation:
 \begin{itemize}
+  \item the intruder's movement speed is unbounded,
   \item the area in question is a rectangular grid,
-  \item the paths, along which the sensors move, are straight line segments,
+  \item the paths along which the sensors move are straight line segments,
   \item all sensors move at the same speed of one unit of distance per one unit of time,
   \item each sensor covers a square area two units of distance across oriented parallel to the edges of the room they protect.
 \end{itemize}
@@ -91,11 +92,11 @@ The following are additional assumptions taken into account, which do lose on ge
 
 \section{Methods}
 
-By considering the area not covered by the senors (two-dimensional object) at each point in time ($\mathbb{R}$), we obtain a three-dimensional (free) complex ($ F $).
-We are only interested in the times up to the period, since the object simply repeats after the period.
-Therefore, the complex we obtain is a torus, where the first point in time is "glued" to the time at the period.
-One way to obtain the evasion paths would be to compute $ H_1 (F, \mathbb{Z}) $ and check which generators represent vaild cycles/paths (ie. cycles going along the period of sensors, cycles not going in the negative direction of time).
-However, we decided to take a different approach and collapse the free complex to a directional graph and compute cycles from the starting nodes of the graph.
+By considering the area not covered by the senors (two-dimensional object) at each point in time $t \in \mathbb{R}$, we obtain a three-dimensional (free) complex $F$ embedded in space-time.
+We are only interested in the times up to the (global) sensor network period $p$, since the object simply repeats itself after $p$.
+Therefore, the complex we obtain is similar to a torus, where the first point in time is ``glued'' to the time at $t = p$.
+One way to obtain the evasion paths would be to compute $ H_1 (F, \mathbb{Z}) $ and check which generators represent vaild cycles/paths (i.e. cycles going strictly forward in time).
+However, we decided to take a different approach and collapse the free complex to a directed graph and compute cycles from the starting nodes of the graph.
 
 % % TODO: Omit/keep?
 % The implementation is divided into multiple parts / components.
@@ -115,7 +116,7 @@ Sensors move towards the next defined \texttt{Position} in the \texttt{Path}, an
 
 The \texttt{SensorNetwork} class is a collection of \texttt{Sensor}s along with the width and height of the rectangular area.
 \texttt{SensorNetwork} represents the entire configuration of the input, since the behaviour of the system is determined by the initial situation.
-To determine the period of the \texttt{Sensor}s, the least common multiple of lengths of all the \texttt{Path}s is computed.
+The global period of the system ($p$) is the least common multiple of all the sensor \texttt{Path}'s lengths.
 
 \subsection{Free complex}
 
@@ -144,66 +145,70 @@ If we consider the case where the cell was covered at time $t$ and was not cover
     \fill[green, opacity=0.8] (0, 3) rectangle (1, 4);
   \end{tikzpicture}
 
-  \caption{Top-down representation of a wedge shape in a cubical complex}
+  \caption{Top-down representation of a wedge shape in a cubical complex.}
   \label{fig:wedge}
 \end{figure}
 
-In the figure \ref{fig:wedge}, the red color denotes the cell is covered by a sensor, the green color denotes the cell is free (not covered).
-We only allow the object to enter the cell, once it is fully free and can therefore omit the wedge shapes.
+In Figure \ref{fig:wedge} the covered area is shown in red and the free area is showin in green.
+We only allow the object to enter the cell once it is fully free and can therefore omit the wedge shapes.
 
 The covered planar slices are obtained by performing a union on all the covered areas by all sensors at each point in time.
 Covered area is simply a \texttt{Position} representing the top-left corner of a covered cell.
 
 The cubical complex of dimensions $ width \times height \times period $ is constructed by assigning the filtration value of $1$ to free cells and $0$ to covered cells.
-According to reasoning described above, a free cell is only free, if it is not covered at 2 consecutive times $t$ and $t + 1$.
+According to reasoning described above, a cell in the complex is marked free {\it iff} the corresponding space is free at two consecutive time-steps $t$ and $t + 1$ (corresponding to 2 faces of the cube in $F$).
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\linewidth]{example_cubical_complex.png}
-  \caption{Free cubical complex of the example configuration}
+  \caption{Free cubical complex of the example configuration (shown in Figure \ref{fig:example}).}
   \label{fig:example_cub_complex}
 \end{figure}
 
 
 \subsection{Computing evasion paths}
 
-Once the cubical complex is obtained, it is collapsed to a directed graph, preserving the homotopy.
-The graph is obtained by computing the connected components of the cubical complex at each time (up to period).
-Nodes of the graph are of form $(t, label)$, where $t$ is the time and $label$ is the label/index of the connected component.
-Each node also holds the data about its \texttt{Position} in the plane, so that we can obtain actual \texttt{Position}s, after computing the cycle.
-The edge is added if there exists a non-empty intersection between components at time $t$ and at time $t + 1$.
-Note that edges always point in the forward direction of time, therefore any cycle computed on such graph, will always point in the forward direction as well.
+Once the cubical complex $F$ is obtained,
+we collapse it into a graph (1-dimensional complex) $G$ in a way that preserves $H_1(F)$.
+A proper elementary collapse would have to preserve higher-dimensional homology as well, however we are only interested in $H_1(F)$. Incidentally, $F$ shouldn't have any $H_2$ generators (enclosed caves) in the case of continuous sensor movement; this would imply there is something homeomorphic to a ball in the covered complex, meaning at some time $t_0$ one or more sensors appear out of thin air, and then disappear into a point at time $t_1 > t_0$.
+% TODO: proof that H_1 (and H_0) is preserved?
+
+The vertices of $G$ correspond to connected components (by 4-connectivity) of $F$ at each time interval $[t, t + 1)$, $0 \leq t < p$. The idea is that an intruder with unbounded speed can move between any pair of points in a connected component of free space within a finite time interval without being detected. 
+The vertices are labeled with $(t, c)$ where $c$ is the index of the connected component in this time slice,
+and they also hold information about the area they cover (so that we can obtain concrete \texttt{Position}s after computing a cycle).
+
+Edges in $G$ allow the intruder to move forward in time, so an edge from $(t, c)$ to $(t + 1, c')$ is added {\it iff} the connected areas $c$ and $c'$ intersect (and thus the intruder can move from $c$ to $c'$ in one time step).
+If we wanted to strictly follow the homology approach to this problem, these edges would need to be undirected so we end up with a simplicial complex on which to compute $H_1$.
+But in order to avoid having to filter out cycles that don't go forward in time, we kept track of the direction of edges in $G$.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{example_graph.png}
-  \caption{Graph of example configuration}
+  \caption{Evasion graph $G$ of example sensor configuration (shown in Figure \ref{fig:example}).}
   \label{fig:example_graph}
 \end{figure}
 
-
-Cycles are then obtained by performing a depth first search on the graph and checking whether the current node is equal to the starting node.
-Note that, because graph is constructed by only adding the edges in the forward direction, each such cycle will have to loop around the entire complex and will therefore have length equal the period of sensors.
+Cycles of $G$ are then obtained by performing a depth-first search (with depth limited to $p$) on the graph and checking whether the current node is equal to the starting node.
+The above construction guarantees that each cycle in $G$ corresponds to a valid evasion path of length $p$.
 
 
 \section{Results}
 
 We tested the algorithm with several configurations.
-
-The first configuration is trivial - a single sensor moving the counter clockwise direction.
+The first configuration is trivial: a single sensor moving in the counter-clockwise direction (Figure \ref{fig:ccw}).
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\linewidth]{ccw.png}
-  \caption{Counter clockwise circular sensor in 4x4 room, period: 8}
+  \caption{Counter-clockwise circular sensor in 4x4 room, period: 8}
   \label{fig:ccw}
 \end{figure}
 
-The algorithm correctly found 1 evasion path, animation can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/ccw.gif}{here}.
+The algorithm correctly found 1 evasion path, an animation of which can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/ccw.gif}{here}.
 
 
 \bigskip
 
-The next configuration is the example from the instructions.
+The next configuration is the example from the instructions (Figure \ref{fig:example}).
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\linewidth]{example.png}
@@ -211,20 +216,21 @@ The next configuration is the example from the instructions.
   \label{fig:example}
 \end{figure}
 
-Algorithm found 288 evasion paths, animation can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/example.gif}{here}.
+The algorithm found 288 different evasion paths through components of free space; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/example.gif}{here}.
 
 
 \section{Discussion}
 
-We implemented evasion path detection by using the Cubical complex structure, reducing it to a graph and finding the cycles there.
-This is equivalent to computing the $ H_1(F, \mathbb{Z}) $, on the complex, however this way we did not need to handle edge cases as described.
+We implemented evasion path detection by using the cubical complex structure, reducing it to a graph and finding the cycles there.
+This is equivalent to computing the $ H_1(F, \mathbb{Z})$ on the free complex, however this way we did not need to handle edge cases as described.
 
 We also implemented animations of evasion paths, which help to visually confirm whether the algorithm works or not.
 
-Another approach would be to look at a square as 2 adjacent triangles (2-dimensional simplex defined by 3 points), however that would turn out to be more complicated as it would include representing grid-like data with 2 partial segments of it.
+An alternative approach would subdivide the cubical complex into a simplicial one (dividing squares into triangles and cubes into tetrahedra) and computing $H_1$ generators with standard TDA software (e.g. dionysus).
+% Another approach would be to look at a square as 2 adjacent triangles (2-dimensional simplex defined by 3 points), however that would turn out to be more complicated as it would include representing grid-like data with 2 partial segments of it.
 
-A different approach would be to use the zig-zag persistance, which would require us to use the simplicial complexes and also to specify a list of times when each simplex enters and leaves the filtration.
-
+A completely different approach would be to represent the time-varying (2-dimensional) free space with a zig-zag filtration and derive evasion paths from zig-zag persistence information.
+% TODO: ref this? https://arxiv.org/pdf/1308.3536.pdf
 
 % \section*{Division of work} TODO: Division of work?
 
