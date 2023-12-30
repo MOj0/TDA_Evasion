@@ -16,6 +16,9 @@
 \usepackage{tikz}
 \usepackage{tikz-3dplot}
 \usepackage{graphicx}
+\usepackage{biblatex}
+
+\addbibresource{bibliography.bib}
 
 % \colorlet{LightGray}{White!90!Periwinkle}
 \colorlet{LightGray}{Blue!30}
@@ -98,14 +101,6 @@ Therefore, the complex we obtain is similar to a torus, where the first point in
 One way to obtain the evasion paths would be to compute $ H_1 (F, \mathbb{Z}) $ and check which generators represent vaild cycles/paths (i.e. cycles going strictly forward in time).
 However, we decided to take a different approach and collapse the free complex to a directed graph and compute cycles from the starting nodes of the graph.
 
-% % TODO: Omit/keep?
-% The implementation is divided into multiple parts / components.
-% First, the data structures for configuring the sensors and their paths are defined.
-% Then, the positions of cells covered by the sensors are computed for all time points up to the peroid.
-% The free complex is computed, which contains the simplices (positions) of the cells not covered by sensors.
-% Free complex is collapsed to a directional graph.
-% Paths, which evade detection are determined by computing the cycles of the graph (starting at nodes at time $0$).
-
 \subsection{Sensors}
 
 Since all the sensors have the same properties (area covered, speed of movement), they are only defined by the \texttt{Path} which they follow.
@@ -170,10 +165,12 @@ According to reasoning described above, a cell in the complex is marked free {\i
 
 Once the cubical complex $F$ is obtained,
 we collapse it into a graph (1-dimensional complex) $G$ in a way that preserves $H_1(F)$.
-A proper elementary collapse would have to preserve higher-dimensional homology as well, however we are only interested in $H_1(F)$. Incidentally, $F$ shouldn't have any $H_2$ generators (enclosed caves) in the case of continuous sensor movement; this would imply there is something homeomorphic to a ball in the covered complex, meaning at some time $t_0$ one or more sensors appear out of thin air, and then disappear into a point at time $t_1 > t_0$.
+A proper elementary collapse would have to preserve higher-dimensional homology as well, however we are only interested in $H_1(F)$.
+Incidentally, $F$ shouldn't have any $H_2$ generators (enclosed caves) in the case of continuous sensor movement; this would imply there is something homeomorphic to a ball in the covered complex, meaning at some time $t_0$ one or more sensors appear out of thin air, and then disappear into a point at time $t_1 > t_0$.
 % TODO: proof that H_1 (and H_0) is preserved?
 
-The vertices of $G$ correspond to connected components (by 4-connectivity) of $F$ at each time interval $[t, t + 1)$, $0 \leq t < p$. The idea is that an intruder with unbounded speed can move between any pair of points in a connected component of free space within a finite time interval without being detected. 
+The vertices of $G$ correspond to connected components (by 4-connectivity) of $F$ at each time interval $[t, t + 1)$, $0 \leq t < p$.
+The idea is that an intruder with unbounded speed can move between any pair of points in a connected component of free space within a finite time interval without being detected.
 The vertices are labeled with $(t, c)$ where $c$ is the index of the connected component in this time slice,
 and they also hold information about the area they cover (so that we can obtain concrete \texttt{Position}s after computing a cycle).
 
@@ -205,7 +202,6 @@ The first configuration is trivial: a single sensor moving in the counter-clockw
 
 The algorithm correctly found 1 evasion path, an animation of which can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/ccw.gif}{here}.
 
-
 \bigskip
 
 The next configuration is the example from the instructions (Figure \ref{fig:example}).
@@ -218,22 +214,44 @@ The next configuration is the example from the instructions (Figure \ref{fig:exa
 
 The algorithm found 288 different evasion paths through components of free space; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/example.gif}{here}.
 
+\bigskip
+
+Lastly, we tested the algorithm on random data.
+
+First example was on a $6 \times 6$ room with 5 sensors, going along paths with up to 5 points.
+The algorithm found 2 evasion paths through components of free space; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_6x6.gif}{here}.
+
+Second example was on a $7 \times 5$ room with 14 sensors, going along paths with up to 5 points.
+The algorithm found 1 evasion path through components of free space; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_7x5.gif}{here}.
+
+We also generated larger rooms with a greater amount of sensors, however that in turn made the underlying structures (\texttt{CubicalComplex}, graph) huge and the algorithm turned out to be too computationally expensive, so it did not compute the evasion paths in reasonable time.
+Furhtermore, if we generate a large room with a small amount of sensors, the area covered will not be substantial, thus the evasion paths will be somewhat trivial, so we will not present those results.
+
 
 \section{Discussion}
 
 We implemented evasion path detection by using the cubical complex structure, reducing it to a graph and finding the cycles there.
 This is equivalent to computing the $ H_1(F, \mathbb{Z})$ on the free complex, however this way we did not need to handle edge cases as described.
 
-We also implemented animations of evasion paths, which help to visually confirm whether the algorithm works or not.
+We also implemented paths formed of arbitrary line segments, for the sensors to follow and an algorithm that returns areas of random sizes and sensor configurations.
+Lastly, we implemented animations of evasion paths as well, which help to visually confirm whether the algorithm works or not.
+
+There is however, another limitation, considering all the assumptions made, left out to be discussed here.
+Since we only allow axis-aligned cuboids in the \texttt{CubicalComplex} (ie. no diagonal edges), the algorithm is not able to detect \textit{tight} evasions.
+A tight evasion is an evasion, where the object trying to escape should always be positioned on a free cell, which will be covered on the next time step.
+This is a limitation of the \texttt{CubicalComplex} in the gudhi library, so if we were to do this, we would have to use another library for the data strucre.
+Furthermore, the algorithm for collapsing the complex to a graph should be changed, such that the nodes of the graph are in time slices, instead of time intervals, and edges are spanned through intervals.
+Since this is a limitation of the gudhi library, we decided not to implement it, as it would require too many changes.
+
+\subsection*{Alternative approaches}
 
 An alternative approach would subdivide the cubical complex into a simplicial one (dividing squares into triangles and cubes into tetrahedra) and computing $H_1$ generators with standard TDA software (e.g. dionysus).
-% Another approach would be to look at a square as 2 adjacent triangles (2-dimensional simplex defined by 3 points), however that would turn out to be more complicated as it would include representing grid-like data with 2 partial segments of it.
 
-A completely different approach would be to represent the time-varying (2-dimensional) free space with a zig-zag filtration and derive evasion paths from zig-zag persistence information.
-% TODO: ref this? https://arxiv.org/pdf/1308.3536.pdf
+A completely different approach would be to represent the time-varying (2-dimensional) free space with a zig-zag filtration and derive evasion paths from zig-zag persistence information \cite{Adams_2014}.
 
-% \section*{Division of work} TODO: Division of work?
 
-% TODO: Bibliography?
+\section{Bibliography}
+
+\printbibliography
 
 \end{document}

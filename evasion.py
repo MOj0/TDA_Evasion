@@ -23,7 +23,7 @@ class Position:
 
     def __str__(self):
         return f"({self.x}, {self.y})"
-    
+
     def __repr__(self):
         return str(self)
 
@@ -145,9 +145,9 @@ class SensorNetwork:
     @functools.cached_property
     def period(self) -> int:
         return math.lcm(*[s.period for s in self.sensors])
-    
+
     def __repr__(self) -> str:
-        return f"Network \"{self.name}\" with {len(self.sensors)} sensors in {self.room_width}x{self.room_height} room (period {self.period})"
+        return f'Network "{self.name}" with {len(self.sensors)} sensors in {self.room_width}x{self.room_height} room (period {self.period})'
 
     def planar_slices(self) -> list[list[gudhi.cubical_complex.CubicalComplex]]:
         areas = []
@@ -180,8 +180,9 @@ class SensorNetwork:
 
     def covered_slices(self) -> Iterator[set[Position]]:
         """result[t] = positions of covered cells at time t
-        
-        NOTE: this actually moves the sensors, but they should return to their original positions at the end"""
+
+        NOTE: this actually moves the sensors, but they should return to their original positions at the end
+        """
         for _ in range(self.period):
             covered_cells = set()
             for s in self.sensors:
@@ -246,18 +247,20 @@ class SensorNetwork:
 
         # NOTE: using a vertices= constructor can lead to an undefined behavior in cofaces_of_persistence_pairs()
         return CubicalComplex(top_dimensional_cells=cube_filtration)
-    
+
     Area: TypeAlias = list[Position]
 
     def evasion_paths(self, compute_homology=False) -> list[list[Area]]:
         """each path is a list of Areas (collection of cell Positions where the thief can be in a given time interval)"""
         cpx = self.evasion_complex()
-        cube_f = cpx.top_dimensional_cells() # filtration values of the top-dimensional cells (cubes)
+        cube_f = (
+            cpx.top_dimensional_cells()
+        )  # filtration values of the top-dimensional cells (cubes)
         # print(f"{cpx.dimension()}-dim evasion complex with {cube_f.shape}-grid of cubes ({cpx.num_simplices()} simplices)")
 
         evasion_graph = collapse_to_graph(cpx)
         # draw_evasion_graph(evasion_graph)
-    
+
         if compute_homology:
             collapsed_cpx = nx.Graph(evasion_graph)
             raise NotImplementedError("compute actual homology on undirected graph...")
@@ -266,16 +269,22 @@ class SensorNetwork:
             #   cases do not represent a path thief can take
         else:
             # just find cyclic paths in the directed graph (should all be of length p due to the construction)
-            starting_points = [node for node in evasion_graph.nodes if node[0] == 0] # position of thief in the first time interval
+            starting_points = [
+                node for node in evasion_graph.nodes if node[0] == 0
+            ]  # position of thief in the first time interval
             paths = []
 
             path_buf = []
-            def cyclic_paths_from(start, curr_node=None, depth_lim=self.period) -> Iterator[list[SensorNetwork.Area]]:
+
+            def cyclic_paths_from(
+                start, curr_node=None, depth_lim=self.period
+            ) -> Iterator[list[SensorNetwork.Area]]:
                 if curr_node == start:
                     yield [evasion_graph.nodes[node]["area"] for node in path_buf]
 
                 elif depth_lim > 0:
-                    if curr_node is None: curr_node = start
+                    if curr_node is None:
+                        curr_node = start
 
                     path_buf.append(curr_node)
                     for succ in evasion_graph.successors(curr_node):
@@ -287,7 +296,7 @@ class SensorNetwork:
                 paths.extend(cyclic_paths_from(start))
 
             return paths
-        
+
         cpx.compute_persistence()
         persistence_pairs, essential_features = cpx.cofaces_of_persistence_pairs()
         # could also try the vertices= constructor and then use cpx.vertices_of_persistence_pairs() ...
@@ -308,7 +317,6 @@ class SensorNetwork:
                     print(f"\t{birth_idx} [free={cube_f[birth_idx]}]")
 
             print()
-
 
 
 def contains_interval(interval: np.ndarray, other: np.ndarray):
@@ -375,18 +383,20 @@ def collapse_to_graph(cpx: CubicalComplex) -> nx.DiGraph:
     along with attribute area (list of Positions in the connected component).
     Edges oriented along the 3rd axis of the grid (time)."""
 
-    voxels: np.ndarray = (cpx.top_dimensional_cells() == 1)
+    voxels: np.ndarray = cpx.top_dimensional_cells() == 1
     p = voxels.shape[2]
     graph = nx.DiGraph()
     voxel_layer_comps: list[list[list[Position]]] = []
 
     for t in range(p):
         time_slice = voxels[:, :, t]
-        labels, ncomps = label(time_slice) # find the connected components (by 4-connectivity)
+        labels, ncomps = label(
+            time_slice
+        )  # find the connected components (by 4-connectivity)
         # print(f"t=[{t}, {t+1}]: {ncomps} components")
         comps = [[] for _ in range(ncomps)]
 
-        for x, y in np.ndindex(labels.shape): # NOTE: first axis is x (room width)
+        for x, y in np.ndindex(labels.shape):  # NOTE: first axis is x (room width)
             if (lab := labels[x, y]) != 0:
                 comps[lab - 1].append(Position(x, y))
 
@@ -400,45 +410,117 @@ def collapse_to_graph(cpx: CubicalComplex) -> nx.DiGraph:
 
         for i, c1 in enumerate(these_comps):
             for j, c2 in enumerate(next_comps):
-                if len(set(c1) & set(c2)) > 0: # OPT: convert all to set only once
+                if len(set(c1) & set(c2)) > 0:  # OPT: convert all to set only once
                     src = (t, i)
                     dst = ((t + 1) % p, j)
                     graph.add_edge(src, dst)
 
     return graph
 
-def draw_evasion_graph(graph: nx.DiGraph):
-    vert_loc = lambda pos: 10 * pos.x + pos.y # TODO: give access to room dimensions, use height + 1 instead of 10
 
-    nx.draw(graph, with_labels=True, pos={node: (node[0], vert_loc(data["area"][0]))
-                                          for node, data in graph.nodes(data=True)})
+def draw_evasion_graph(graph: nx.DiGraph):
+    vert_loc = (
+        lambda pos: 10 * pos.x + pos.y
+    )  # TODO: give access to room dimensions, use height + 1 instead of 10
+
+    nx.draw(
+        graph,
+        with_labels=True,
+        pos={
+            node: (node[0], vert_loc(data["area"][0]))
+            for node, data in graph.nodes(data=True)
+        },
+    )
     plt.title(f"Evasion {graph}")
     plt.show()
 
 
+def random_path(width, height, n) -> Path:
+    assert n >= 2, "path has to be at least of length 2"
+
+    points = []
+    for i in range(n):
+        repeat = True
+        while repeat:
+            if i > 0:
+                prev_pos = points[i - 1]
+                r = np.random.random() >= 0.5
+                next_pos = Position(
+                    prev_pos.x if r else np.random.randint(1, width),
+                    np.random.randint(1, height) if r else prev_pos.y,
+                )
+            else:
+                next_pos = Position(
+                    np.random.randint(1, width), np.random.randint(1, height)
+                )
+
+            repeat = any(next_pos == p for p in points[:i])
+            if i == n - 1:
+                repeat = (
+                    repeat or points[0].x != next_pos.x and points[0].y != next_pos.y
+                )
+
+        points.append(next_pos)
+
+    return Path(points)
+
+
+def random_sensor_network(max_size, n_sensors, path_len) -> SensorNetwork:
+    assert max_size >= 4, "max_size has to be at least 4"
+
+    width, height = np.random.randint(4, max_size + 1, size=2)
+    sensors = [Sensor(random_path(width, height, path_len)) for _ in range(n_sensors)]
+
+    return SensorNetwork(
+        "random sensor network", room_width=width, room_height=height, sensors=sensors
+    )
+
+
 NETWORKS = [
-    SensorNetwork("instructions example", room_width=8, room_height=8, sensors=[
-        Sensor(Path([Position(1, 1), Position(1, 6)])),
-        Sensor(
-            Path([Position(6, 1), Position(7, 1), Position(2, 1)]),
-        ),
-        Sensor(Path([Position(3, 5), Position(3, 3)])),
-        Sensor(Path([Position(5, 4), Position(5, 5), Position(5, 3)])),
-        Sensor(Path([Position(7, 5), Position(7, 7), Position(7, 3)])),
-        Sensor(Path([Position(4, 7), Position(1, 7), Position(5, 7)]))
-    ]),
-    SensorNetwork("CCW circular sensor", room_width=4, room_height=4, sensors=[
-        Sensor(Path([Position(1, 1), Position(1, 3), Position(3, 3), Position(3, 1)]))
-    ]),
+    SensorNetwork(
+        "instructions example",
+        room_width=8,
+        room_height=8,
+        sensors=[
+            Sensor(Path([Position(1, 1), Position(1, 6)])),
+            Sensor(
+                Path([Position(6, 1), Position(7, 1), Position(2, 1)]),
+            ),
+            Sensor(Path([Position(3, 5), Position(3, 3)])),
+            Sensor(Path([Position(5, 4), Position(5, 5), Position(5, 3)])),
+            Sensor(Path([Position(7, 5), Position(7, 7), Position(7, 3)])),
+            Sensor(Path([Position(4, 7), Position(1, 7), Position(5, 7)])),
+        ],
+    ),
+    SensorNetwork(
+        "CCW circular sensor",
+        room_width=4,
+        room_height=4,
+        sensors=[
+            Sensor(
+                Path([Position(1, 1), Position(1, 3), Position(3, 3), Position(3, 1)])
+            )
+        ],
+    ),
     # SensorNetwork("instructions fig. 4")
-    SensorNetwork("2 parrallel up&down (no evasion)", room_width=4, room_height=5, sensors=[
-        Sensor(Path([Position(1, 1), Position(1, 4)])),
-        Sensor(Path([Position(3, 1), Position(3, 4)]))
-    ]),
-    SensorNetwork("2 consecutive up&down (tight evasion)", room_width=2, room_height=6, sensors=[
-        Sensor(Path([Position(1, 1), Position(1, 2)])),
-        Sensor(Path([Position(1, 4), Position(1, 5)]))
-    ]),
+    SensorNetwork(
+        "2 parrallel up&down (no evasion)",
+        room_width=4,
+        room_height=5,
+        sensors=[
+            Sensor(Path([Position(1, 1), Position(1, 4)])),
+            Sensor(Path([Position(3, 1), Position(3, 4)])),
+        ],
+    ),
+    SensorNetwork(
+        "2 consecutive up&down (tight evasion)",
+        room_width=2,
+        room_height=6,
+        sensors=[
+            Sensor(Path([Position(1, 1), Position(1, 2)])),
+            Sensor(Path([Position(1, 4), Position(1, 5)])),
+        ],
+    ),
 ]
 
 
