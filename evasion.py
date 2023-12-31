@@ -465,14 +465,40 @@ def random_path(width, height, n) -> Path:
     return Path(points)
 
 
-def random_sensor_network(max_size, n_sensors, path_len) -> SensorNetwork:
+def random_paths(width, height, path_len) -> list[Path]:
+    paths = []
+    cells_to_cover = set(Position(x, y) for x in range(width) for y in range(height))
+    while len(cells_to_cover) > 0:
+        repeat = True
+        while repeat:
+            p = random_path(width, height, path_len)
+            sensor = Sensor(p)
+            network = SensorNetwork("", [sensor], width, height)
+
+            covered_cells = set()
+            for _ in range(sensor.period):
+                covered_cells.update(network.cells_covered_by(sensor))
+                sensor.move()
+
+            path_lens = list(map(len, paths)) + [len(p)]
+            path_lcm = math.lcm(*path_lens)
+
+            repeat = len(cells_to_cover & covered_cells) == 0 or path_lcm > 100
+
+        paths.append(p)
+        cells_to_cover.difference_update(covered_cells)
+
+    return paths
+
+
+def random_sensor_network(max_size, path_len) -> SensorNetwork:
     assert max_size >= 4, "max_size has to be at least 4"
 
     width, height = np.random.randint(4, max_size + 1, size=2)
-    sensors = [Sensor(random_path(width, height, path_len)) for _ in range(n_sensors)]
+    sensors = list(map(Sensor, random_paths(width, height, path_len)))
 
     return SensorNetwork(
-        "random sensor network", room_width=width, room_height=height, sensors=sensors
+        "random_sensor_network", room_width=width, room_height=height, sensors=sensors
     )
 
 
