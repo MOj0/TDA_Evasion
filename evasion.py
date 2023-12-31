@@ -250,7 +250,7 @@ class SensorNetwork:
 
     Area: TypeAlias = list[Position]
 
-    def evasion_paths(self, compute_homology=False) -> list[list[Area]]:
+    def evasion_paths(self, compute_homology=False) -> list[list[Area]]: # TODO: make this a generator of paths (so we can quickly find the first one)
         """each path is a list of Areas (collection of cell Positions where the thief can be in a given time interval)"""
         cpx = self.evasion_complex()
         cube_f = (
@@ -402,7 +402,6 @@ def collapse_to_graph(cpx: CubicalComplex) -> nx.DiGraph:
 
         voxel_layer_comps.append(comps)
         graph.add_nodes_from(((t, c), dict(area=comp)) for c, comp in enumerate(comps))
-        # TODO: use the centroid as a component representative instead of arbitrary cell? (pretty sure these are convex components)
 
     for t in range(p):
         these_comps = voxel_layer_comps[t]
