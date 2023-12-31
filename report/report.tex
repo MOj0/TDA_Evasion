@@ -216,16 +216,15 @@ The algorithm found 288 different evasion paths through components of free space
 
 \bigskip
 
-Lastly, we tested the algorithm on random data.
+Lastly, we tested the algorithm on random inputs, such that every point in the room is covered by at least one sensor at least part of the time.
+Here are some inputs, along with their animations:
 
-First example was on a $6 \times 6$ room with 5 sensors, going along paths with up to 5 points.
-The algorithm found 2 evasion paths through components of free space; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_6x6.gif}{here}.
-
-Second example was on a $7 \times 5$ room with 14 sensors, going along paths with up to 5 points.
-The algorithm found 1 evasion path through components of free space; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_7x5.gif}{here}.
-
-We also generated larger rooms with a greater amount of sensors, however that in turn made the underlying structures (\texttt{CubicalComplex}, graph) huge and the algorithm turned out to be too computationally expensive, so it did not compute the evasion paths in reasonable time.
-Furhtermore, if we generate a large room with a small amount of sensors, the area covered will not be substantial, thus the evasion paths will be somewhat trivial, so we will not present those results.
+\begin{itemize}
+  \item $10 \times 13$ room with 30 sensors, and a period of 80, where the algorithm found a single evasion path; an animation of the path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_sensor_network_10x13_s30_p80_e1.gif}{here}.
+  \item $12 \times 18$ room with 48 sensors, and a period of 56, where the algorithm found 2 evasion paths; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_sensor_network_12x18_s48_p56_e2.gif}{here}.
+  \item $12 \times 24$ room with 58 sensors, and a period of 84, where the algorithm found 68 evasion paths; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_sensor_network_12x24_s58_p84_e68.gif}{here}.
+  \item $20 \times 18$ room with 66 sensors, and a period of 80, where the algorithm found 247125 evasion paths; an animation of one path can be found \href{https://github.com/MOj0/TDA_Evasion/blob/main/report/random_sensor_network_20x18_s66_p80_e247125.gif}{here}.
+\end{itemize}
 
 
 \section{Discussion}
