@@ -76,9 +76,8 @@
 
 The evasion problem asks if there is a way to move in an area, covered with moving sensors, and not be detected.
 We assume the sensors follow a predefined path and their movement is periodic.
-This means that, after some period, the area covered by sensors is identical.
-Furthermore, we assume the area in question is a subspace of the plane $ \mathbb{R}^2 $.
-These assumptions do not lose generality, since movement of real sesnors is often periodic and movement through an area can be modelled in the plane.
+This means that, after some period, the area covered by sensors is identical, which is often the case with real sensors.
+Furthermore, we assume the area in question is a subspace of the plane $ \mathbb{R}^2 $, however this is not necessary, since our method can be applied to higher dimensions as well.
 
 This solution could be applied to the problem of determining the optimal amount of sensors and their paths to cover the area.
 The goal in this case is not to cover the entire area at all times, but to cover parts of it with fewer sensors, such that a potential intruder cannot avoid detection throughout the whole period.
@@ -116,7 +115,7 @@ The global period of the system ($p$) is the least common multiple of all the se
 \subsection{Free complex}
 
 For the data structure of the free complex ($F$), we used the \href{https://gudhi.inria.fr/python/latest/cubical_complex_user.html}{\texttt{CubicalComplex}} from the \href{https://pypi.org/project/gudhi/}{gudhi} library.
-This approach is the simplest, because the area covered by each sensor is a square (ie. a 2-dimensional simplex, defined by 4 points), so we do not have to do any transformation.
+This approach is the simplest, because the area covered by each sensor is a square (ie. a 2-dimensional simplex, defined by 4 points).
 
 We can even further simplify the complex construction, by not taking any wedge shapes into account.
 A wedge shape is a situation where a cell in the grid was covered at time $t$, but is not covered at time $t + 1$ or vise versa - not covered at $t$, covered at $t + 1$.
@@ -188,6 +187,8 @@ But in order to avoid having to filter out cycles that don't go forward in time,
 Cycles of $G$ are then obtained by performing a depth-first search (with depth limited to $p$) on the graph and checking whether the current node is equal to the starting node.
 The above construction guarantees that each cycle in $G$ corresponds to a valid evasion path of length $p$.
 
+Note that, since the problem is reduced to a problem on a graph, this method works in higher dimensions as well, since higher dimensional complexes can be collapsed to a graph in the same manner.
+The area in question can therefore be 3-dimensional (or even more, however modelling of movement in a space only makes sense up to 3 dimensions).
 
 \section{Results}
 
