@@ -94,7 +94,7 @@ To ease implementation at the cost of some generality, we make the following sim
 
 \section{Methods}
 
-By considering the unobserved (free) area at each point in time $t \in \mathbb{R}$ (a two-dimensional planar slice), we obtain the three-dimensional {\it free complex} $F$ embedded in space-time.
+By considering the unobserved/free area at each point in time $t \in \mathbb{R}$ (a two-dimensional planar slice), we obtain the three-dimensional {\it free complex} $F$ embedded in space-time.
 We are only interested in the times up to the (global) sensor network period $p$, since the object simply repeats itself after $p$.
 Therefore, the complex we obtain is similar to a torus, where the first point in time is ``glued'' to the time at $t = p$.
 One way to obtain the evasion paths would be to compute $ H_1 (F, \mathbb{Z}) $ and check which generators represent valid cycles/paths (i.e. cycles going strictly forward in time).
@@ -105,7 +105,7 @@ However, we decided to take a different approach: collapsing the free complex to
 Since all the sensors have the same properties (area covered, speed of movement), they are uniquely defined by the \texttt{Path} which they follow.
 A \texttt{Path} is a sequence of \texttt{Position}s, where a \texttt{Position} is point in the plane $(x, y)$.
 Since we want the sensors to move along straight line segments, two consecutive \texttt{Position}s need to either have equal $x$ or equal $y$ coordinates.
-The length of a \texttt{Path} is the sum of all the consecutive line segments that form it.
+The \texttt{Path} length is determined by summing the lengths of all its individual line segments.
 Sensors move towards the next defined \texttt{Position} in the \texttt{Path}, and move towards the first \texttt{Position} when reaching the last one.
 
 The \texttt{SensorNetwork} class is a collection of \texttt{Sensor}s along with the width and height of the rectangular area.
