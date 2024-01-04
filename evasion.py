@@ -132,7 +132,6 @@ class SensorNetwork:
 
     def __post_init__(self):
         assert all(
-            # TODO: Should we allow sensors moving along coordinate 0? (it is handled in cells_covered_by())
             0 <= p.x < self.room_width and 0 <= p.y < self.room_height
             for sensor in self.sensors
             for p in sensor.path.path_points
@@ -207,28 +206,6 @@ class SensorNetwork:
             for y in range(self.room_height):
                 yield Position(x, y)
 
-    def construct_F(self):
-        r"""Constructs free subcomplex F = (X * [0, p] \ C)"""
-
-        F_complex = defaultdict(list)
-        slices = self.planar_slices()
-        cells = self.all_cells()
-
-        for i, (s1, s2) in enumerate(zip(slices, slices[1:] + [slices[0]])):
-            for cell in cells:
-                first_cell_free = not any(
-                    contains_interval(s.vertices(), cell) for s in s1
-                )
-                second_cell_free = not any(
-                    contains_interval(s.vertices(), cell) for s in s2
-                )
-
-                if first_cell_free and second_cell_free:
-                    # TODO: Construct 3D cubical complex here
-                    F_complex[(i, i + 1)].append(cell)
-
-        return F_complex
-
     def evasion_complex(self) -> CubicalComplex:
         """Constructs the complex X * [0, p] where free cubes have filtration value 1 (and 0 otherwise).
         Indexing: (x, y, t)"""
@@ -250,7 +227,11 @@ class SensorNetwork:
 
     Area: TypeAlias = list[Position]
 
-    def evasion_paths(self, compute_homology=False) -> list[list[Area]]: # TODO: make this a generator of paths (so we can quickly find the first one)
+    def evasion_paths(
+        self, compute_homology=False
+    ) -> list[
+        list[Area]
+    ]:  # TODO: make this a generator of paths (so we can quickly find the first one)
         """each path is a list of Areas (collection of cell Positions where the thief can be in a given time interval)"""
         cpx = self.evasion_complex()
         cube_f = (
@@ -296,34 +277,6 @@ class SensorNetwork:
                 paths.extend(cyclic_paths_from(start))
 
             return paths
-
-        cpx.compute_persistence()
-        persistence_pairs, essential_features = cpx.cofaces_of_persistence_pairs()
-        # could also try the vertices= constructor and then use cpx.vertices_of_persistence_pairs() ...
-
-        for dim in range(max(len(persistence_pairs), len(essential_features))):
-            print(f"homological dimension {dim}:")
-            print("persistence pairs:")
-            for pair in persistence_pairs[dim]:
-                birth_idx, death_idx = (np.unravel_index(i, cube_f.shape) for i in pair)
-                print(
-                    f"\t{str(birth_idx):<11} [free={cube_f[birth_idx]}] -> {str(death_idx):<11} [free={cube_f[death_idx]}]"
-                )
-
-            if dim < len(essential_features):
-                print("essential features:")
-                for feature in essential_features[dim]:
-                    birth_idx = np.unravel_index(feature, cube_f.shape)
-                    print(f"\t{birth_idx} [free={cube_f[birth_idx]}]")
-
-            print()
-
-
-def contains_interval(interval: np.ndarray, other: np.ndarray):
-    return all(
-        element[0] >= boundary[0] and element[1] <= boundary[1]
-        for boundary, element in zip(interval.transpose(), other.transpose())
-    )
 
 
 def draw3d(cpx: CubicalComplex, free_full=True, alpha=0.5):
@@ -527,7 +480,6 @@ NETWORKS = [
             )
         ],
     ),
-    # SensorNetwork("instructions fig. 4")
     SensorNetwork(
         "2 parrallel up&down (no evasion)",
         room_width=4,
@@ -537,22 +489,13 @@ NETWORKS = [
             Sensor(Path([Position(3, 1), Position(3, 4)])),
         ],
     ),
-    SensorNetwork(
-        "2 consecutive up&down (tight evasion)",
-        room_width=2,
-        room_height=6,
-        sensors=[
-            Sensor(Path([Position(1, 1), Position(1, 2)])),
-            Sensor(Path([Position(1, 4), Position(1, 5)])),
-        ],
-    ),
 ]
 
 
 if __name__ == "__main__":
-    for network in NETWORKS[-1:]:
+    for network in NETWORKS:
         print(network)
-        # draw3d(network.evasion_complex(), alpha=0.4)
         paths = network.evasion_paths(compute_homology=False)
         print(f"found {len(paths)} evasion paths")
+        draw3d(network.evasion_complex(), alpha=0.4)
         # pprint(paths)
